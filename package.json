@@ -2,6 +2,9 @@
   "name": "career-sync-root",
   "private": true,
   "scripts": {
-    "build": "cd client && npm install && npm run build"
+    "build": "cd client && npm install && npm run build && mv dist ../dist"
+  },
+  "dependencies": {
+    "nodemon": "^3.1.10"
   }
 }
