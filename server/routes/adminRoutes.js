@@ -1,13 +1,14 @@
 const express = require("express");
 const router = express.Router();
-const admin = require("../config/firebaseAdmin");
-const { getFirestore } = require("firebase-admin/firestore");
-const db = getFirestore();
+
+// Correct Firebase Admin import
+const { admin, db } = require("../services/firebase");
+
+// Firestore utilities
+const { FieldValue } = require("firebase-admin/firestore");
 
 /**
  * Approve a registration (institution or company)
- * Creates Firebase Auth user ONLY if email does not already exist.
- * Sends password to email.
  */
 router.post("/approve-registration", async (req, res) => {
   try {
@@ -21,14 +22,14 @@ router.post("/approve-registration", async (req, res) => {
 
     let uid = null;
 
-    // Step 1 → Check if email already exists in Firebase Auth
+    // Step 1 → Check if email exists
     try {
       const userRecord = await admin.auth().getUserByEmail(email);
       uid = userRecord.uid;
-      console.log("User already exists → Using existing UID:", uid);
+      console.log("Existing user → UID:", uid);
+
     } catch (err) {
       if (err.code === "auth/user-not-found") {
-        // Step 2 → Create new user with generated password
         const generatedPassword = Math.random().toString(36).slice(-8);
 
         const newUser = await admin.auth().createUser({
@@ -39,21 +40,20 @@ router.post("/approve-registration", async (req, res) => {
 
         uid = newUser.uid;
 
-        // send password via email
         await sendPasswordEmail(email, generatedPassword);
-        console.log("New user created and email sent.");
+        console.log("New user created + email sent.");
 
       } else {
-        console.error("Email lookup error:", err);
-        return res.status(500).json({ error: "Email check failed" });
+        console.error("Firebase email lookup error:", err);
+        return res.status(500).json({ error: "Email lookup failed" });
       }
     }
 
     if (!uid) {
-      return res.status(500).json({ error: "No UID generated" });
+      return res.status(500).json({ error: "UID was not generated" });
     }
 
-    // Step 3 → Move data from registrations → users + role collection
+    // Step 2 → Move registration → users + role collection
     const regRef = db.collection("registrations").doc(registrationId);
     const regSnap = await regRef.get();
 
@@ -63,26 +63,26 @@ router.post("/approve-registration", async (req, res) => {
 
     const regData = regSnap.data();
 
-    // Add to users collection
+    // Add user
     await db.collection("users").doc(uid).set({
       uid,
       email,
       name,
       role,
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      createdAt: FieldValue.serverTimestamp(),
       ...regData
     });
 
-    // Add to specific role collection
+    // Add to role-specific collection
     await db.collection(role).doc(uid).set({
       uid,
       email,
       name,
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      createdAt: FieldValue.serverTimestamp(),
       ...regData
     });
 
-    // Step 4 → Delete registration
+    // Delete registration
     await regRef.delete();
 
     return res.status(200).json({ success: true, uid });
@@ -94,7 +94,7 @@ router.post("/approve-registration", async (req, res) => {
 });
 
 /**
- * Dummy email sender – Replace with real email service
+ * Dummy email sender
  */
 async function sendPasswordEmail(email, password) {
   console.log(`Email sent to ${email}: password = ${password}`);
