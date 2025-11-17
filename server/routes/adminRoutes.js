@@ -26,14 +26,25 @@ router.post("/approve-registration", async (req, res) => {
     let uid = null;
 
     // Step 1 → Check if email exists
+    let isNewUser = false;
+    let generatedPassword = null;
+
     try {
       const userRecord = await admin.auth().getUserByEmail(email);
       uid = userRecord.uid;
       console.log("Existing user → UID:", uid);
 
+      // For existing users, generate a new password and send it
+      generatedPassword = Math.random().toString(36).slice(-8);
+      await admin.auth().updateUser(uid, {
+        password: generatedPassword,
+        emailVerified: false,
+      });
+
     } catch (err) {
       if (err.code === "auth/user-not-found") {
-        const generatedPassword = Math.random().toString(36).slice(-8);
+        isNewUser = true;
+        generatedPassword = Math.random().toString(36).slice(-8);
 
         const newUser = await admin.auth().createUser({
           email,
@@ -42,15 +53,17 @@ router.post("/approve-registration", async (req, res) => {
         });
 
         uid = newUser.uid;
-
-        await sendPasswordEmail(email, generatedPassword);
-        console.log("New user created + email sent.");
+        console.log("New user created.");
 
       } else {
         console.error("Firebase email lookup error:", err);
         return res.status(500).json({ error: "Email lookup failed" });
       }
     }
+
+    // Send password email for both new and existing users
+    await sendPasswordEmail(email, generatedPassword, isNewUser);
+    console.log("Password email sent.");
 
     if (!uid) {
       return res.status(500).json({ error: "UID was not generated" });
@@ -99,16 +112,22 @@ router.post("/approve-registration", async (req, res) => {
 /**
  * Send password email via SendGrid
  */
-async function sendPasswordEmail(email, password) {
-  const subject = "Welcome to Career Guidance Platform - Your Account Details";
-  const text = `Hello,\n\nYour account has been approved!\n\nEmail: ${email}\nPassword: ${password}\n\nPlease log in and change your password immediately.\n\nBest regards,\nCareer Guidance Platform Team`;
+async function sendPasswordEmail(email, password, isNewUser) {
+  const subject = isNewUser
+    ? "Welcome to Career Guidance Platform - Your Account Details"
+    : "Career Guidance Platform - Account Password Reset";
+
+  const text = isNewUser
+    ? `Hello,\n\nYour account has been approved!\n\nEmail: ${email}\nPassword: ${password}\n\nPlease log in and change your password immediately.\n\nBest regards,\nCareer Guidance Platform Team`
+    : `Hello,\n\nYour account password has been reset for approval.\n\nEmail: ${email}\nNew Password: ${password}\n\nPlease log in and change your password immediately.\n\nBest regards,\nCareer Guidance Platform Team`;
+
   const html = `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-      <h2>Welcome to Career Guidance Platform!</h2>
-      <p>Your account has been approved successfully.</p>
+      <h2>${isNewUser ? 'Welcome to Career Guidance Platform!' : 'Career Guidance Platform - Password Reset'}</h2>
+      <p>${isNewUser ? 'Your account has been approved successfully.' : 'Your account password has been reset for approval.'}</p>
       <div style="background-color: #f5f5f5; padding: 20px; border-radius: 5px; margin: 20px 0;">
         <p><strong>Email:</strong> ${email}</p>
-        <p><strong>Password:</strong> ${password}</p>
+        <p><strong>${isNewUser ? 'Password' : 'New Password'}:</strong> ${password}</p>
       </div>
       <p style="color: #d32f2f;"><strong>Important:</strong> Please log in and change your password immediately for security.</p>
       <p>Best regards,<br>Career Guidance Platform Team</p>
