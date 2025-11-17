@@ -1,8 +1,8 @@
 // studentRoutes.js
 const express = require("express");
 const router = express.Router();
-const nodemailer = require("nodemailer");
 const { db } = require("../services/firebase"); // Firestore instance
+const { sendEmail } = require("../utils/emailService");
 
 // ==========================
 // 1️⃣ REGISTER OR UPDATE STUDENT PROFILE
@@ -229,22 +229,9 @@ router.post("/applyJob", async (req, res) => {
 // ==========================
 // 7️⃣ EMAIL NOTIFICATIONS
 // ==========================
-const transporter = nodemailer.createTransport({
-  service: "gmail",
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
-  },
-});
-
-async function sendNotificationEmail(to, subject, message) {
+async function sendNotificationEmail(to, subject, text, html) {
   try {
-    await transporter.sendMail({
-      from: `"Career Guidance Platform" <${process.env.EMAIL_USER}>`,
-      to,
-      subject,
-      text: message,
-    });
+    await sendEmail(to, subject, text, html);
     console.log("Email sent successfully to:", to);
   } catch (err) {
     console.error("Error sending email:", err);

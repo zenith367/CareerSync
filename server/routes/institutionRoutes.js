@@ -2,7 +2,7 @@
 const express = require("express");
 const router = express.Router();
 const { db } = require("../services/firebase"); // Firestore config
-const { sendEmail } = require("../utils/emailService"); // nodemailer helper
+const { sendEmail } = require("../utils/emailService"); // SendGrid helper
 
 // ========== 1️⃣ REGISTER / UPDATE INSTITUTION PROFILE ==========
 router.post("/register", async (req, res) => {
