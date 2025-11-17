@@ -1,24 +1,19 @@
-const nodemailer = require("nodemailer");
+const sgMail = require("@sendgrid/mail");
 
-const transporter = nodemailer.createTransport({
-  service: "gmail",
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
-  },
-});
+sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
 const sendEmail = async (to, subject, text, html) => {
   try {
-    const info = await transporter.sendMail({
-      from: `"Career Guidance Platform" <${process.env.EMAIL_USER}>`,
+    const msg = {
       to,
+      from: "rorisangthakholi8@gmail.com", // Verified sender email
       subject,
       text,
       html,
-    });
+    };
 
-    console.log("📨 Email sent:", info.response);
+    const info = await sgMail.send(msg);
+    console.log("📨 Email sent via SendGrid:", info[0].statusCode);
     return info;
   } catch (err) {
     console.error("❌ Email send error:", err.message);

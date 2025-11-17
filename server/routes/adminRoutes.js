@@ -7,6 +7,9 @@ const { admin, db } = require("../services/firebase");
 // Firestore utilities
 const { FieldValue } = require("firebase-admin/firestore");
 
+// Email service
+const { sendEmail } = require("../utils/emailService");
+
 /**
  * Approve a registration (institution or company)
  */
@@ -94,11 +97,25 @@ router.post("/approve-registration", async (req, res) => {
 });
 
 /**
- * Dummy email sender
+ * Send password email via SendGrid
  */
 async function sendPasswordEmail(email, password) {
-  console.log(`Email sent to ${email}: password = ${password}`);
-  return true;
+  const subject = "Welcome to Career Guidance Platform - Your Account Details";
+  const text = `Hello,\n\nYour account has been approved!\n\nEmail: ${email}\nPassword: ${password}\n\nPlease log in and change your password immediately.\n\nBest regards,\nCareer Guidance Platform Team`;
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+      <h2>Welcome to Career Guidance Platform!</h2>
+      <p>Your account has been approved successfully.</p>
+      <div style="background-color: #f5f5f5; padding: 20px; border-radius: 5px; margin: 20px 0;">
+        <p><strong>Email:</strong> ${email}</p>
+        <p><strong>Password:</strong> ${password}</p>
+      </div>
+      <p style="color: #d32f2f;"><strong>Important:</strong> Please log in and change your password immediately for security.</p>
+      <p>Best regards,<br>Career Guidance Platform Team</p>
+    </div>
+  `;
+
+  await sendEmail(email, subject, text, html);
 }
 
 module.exports = router;
